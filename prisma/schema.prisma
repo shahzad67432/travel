@@ -11,30 +11,285 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = "postgresql://myuser:mypassword@localhost:5433/mydatabase?schema=public"
-
 }
 
+// User and Authentication
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           UserRole @default(TRAVELER)
+  profilePicture String?
+  loyaltyPoints  Int      @default(0)
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  partner       Partner?
+  bookings      Booking[] // As traveler
+  reviews       Review[] // Reviews written
+  wishlists     Wishlist[]
+  messages      Message[] // Messages sent
+  notifications Notification[]
+  adminActions  AdminAction[]
+  blogs         Blog[] // Blogs written
+}
 
 enum UserRole {
-  ADMIN
-  PARTNER
   TRAVELER
+  PARTNER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// Partner Management
+model Partner {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id])
+  businessName       String
+  contactPerson      String
+  email              String             @unique
+  phoneNumber        String
+  partnerType        PartnerType
+  // regionsOperated   String[]
+  servicesOffered    String[]
+  payoutDetails      Json
+  verificationStatus VerificationStatus @default(PENDING)
+  commission         Float              @default(0)
+  averageRating      Float              @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  permissions          CategoryPermission[]
+  listings             Listing[]
+  bookings             Booking[] // Bookings received
+  payouts              Payout[]
+  reviews              Review[] // Reviews received
+  analytics            PartnerAnalytics?
+  actions              PartnerAction[]
+  modificationRequests ListingModificationRequest[]
 }
 
 enum PartnerType {
-  HOTELS
+  HOTEL
   OPERATOR
   ACTIVITY_PROVIDER
-  RentalProvider
+  RENTAL_PROVIDERS
+  TOUR_GUIDE
 }
 
-enum ListingType {
-  HOTEL
-  TOUR
-  TREK
-  ACTIVITY
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Category Management
+model CategoryPermission {
+  id            String        @id @default(uuid())
+  partnerId     String
+  partner       Partner       @relation(fields: [partnerId], references: [id])
+  categoryId    String
+  category      Category      @relation(fields: [categoryId], references: [id])
+  subCategories SubCategory[]
+  tourTypes     TourType[] // didnot understand this
+  tourThemes    TourTheme[] // didnot understand this
+  createdAt     DateTime      @default(now())
+
+  @@unique([partnerId, categoryId])
+}
+
+model Category {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  enumName    CategoryEnum
+  description String?
+  createdAt   DateTime     @default(now())
+
+  // Relations
+  subCategories SubCategory[]
+  permissions   CategoryPermission[]
+  listings      Listing[]
+}
+
+enum CategoryEnum {
+  HOTELS
+  TOURS
+  TREKS
+  ACTIVITIES
   CAR_RENTAL
   BIKE_RENTAL
+}
+
+model SubCategory {
+  id             String   @id @default(uuid())
+  categoryId     String
+  category       Category @relation(fields: [categoryId], references: [id])
+  requiredFields Json // for specific fields from admin
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  permissions CategoryPermission[]
+  listings    Listing[]
+}
+
+model TourType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  permissions CategoryPermission[]
+  listings    Listing[]
+}
+
+model TourTheme {
+  id          String        @id @default(uuid())
+  name        TourThemeType
+  description String?
+  createdAt   DateTime      @default(now())
+
+  // Relations
+  permissions CategoryPermission[]
+  listings    Listing[]
+}
+
+enum TourThemeType {
+  Sightseeing
+  Expedition
+  Mountaineering
+  Safari
+  Luxury
+}
+
+// Listing Management
+model Listing {
+  id            String       @id @default(uuid())
+  partnerId     String
+  partner       Partner      @relation(fields: [partnerId], references: [id])
+  categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id])
+  subCategoryId String?
+  subCategory   SubCategory? @relation(fields: [subCategoryId], references: [id])
+  tourTypeId    String?
+  tourType      TourType?    @relation(fields: [tourTypeId], references: [id])
+  tourThemeId   String?
+  tourTheme     TourTheme?   @relation(fields: [tourThemeId], references: [id])
+
+  title             String
+  description       String
+  price             Json // Flexible pricing structure
+  images            String[] // Array of image URLs
+  location          String
+  travelNinjaRating Float?
+  userRating        Float                 @default(0)
+  availability      Json // Calendar or date ranges
+  isActive          Boolean               @default(true)
+  approved          listingApprovedStatus @default(PENDING)
+  // SEO fields
+  seoTitle          String?
+  seoDescription    String?
+  seoKeywords       String[]              @default([])
+
+  // Common tour/trek/activity fields
+  duration           String?
+  languages          String[] @default([])
+  ageRange           String?
+  departureCity      String?
+  locations          String[] @default([])
+  landmarks          Json? // Photos and names of key landmarks
+  pricingByAge       Json? // Price breakdown by age group
+  addOns             Json? // Optional services
+  termsAndConditions String?
+  faqs               Json?
+
+  // Trek/Climbing specific
+  difficultyLevel     String?
+  maxAltitude         Int?
+  distance            Float?
+  fitnessRequirements String?
+  whatToBring         String[] @default([])
+
+  // Activity specific
+  activityType String?
+  itinerary    Json? // Hour-by-hour or day-by-day plan
+  startTime    String?
+
+  // Vehicle rental specific
+  vehicleType   String?
+  model         String?
+  transmission  String?
+  engineCC      Int?
+  rentalPolicy  String?
+  features      String[] @default([])
+  pickupAddress String?
+  rates         Json?
+
+  // Hotel specific
+  totalRooms  Int?
+  roomTypes   Json? // List of room types with descriptions
+  amenities   String[] @default([])
+  roomPricing Json?
+
+  // Guide specific
+  guideExperience Int?
+  specializations String[] @default([])
+  certificates    String[] @default([])
+  // GuideSpecificAvailability      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  bookings             Booking[]
+  reviews              Review[]
+  wishlists            Wishlist[]
+  modificationRequests ListingModificationRequest[]
+  partnerActions       PartnerAction[]
+}
+
+enum listingApprovedStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Booking and Payments
+model Booking {
+  id            String        @id @default(uuid())
+  listingId     String
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  travelerId    String
+  traveler      User          @relation(fields: [travelerId], references: [id])
+  partnerId     String
+  partner       Partner       @relation(fields: [partnerId], references: [id])
+  bookingType   String // Group, Private
+  groupSize     Int?
+  totalAmount   Float
+  paymentStatus PaymentStatus @default(PENDING)
+  bookingDates  Json
+  status        BookingStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  payments Payment[]
+  payouts  Payout[]
+  messages Message[]
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }
 
 enum BookingStatus {
@@ -44,583 +299,232 @@ enum BookingStatus {
   COMPLETED
 }
 
-enum PayoutStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-enum RoomType {
-  SINGLE
-  DOUBLE
-  TWIN
-  SUITE
-  FAMILY
-  DELUXE
-}
-
-enum TourType {
-  CULTURAL
-  ADVENTURE
-  WILDLIFE
-  HISTORICAL
-  SIGHTSEEING
-}
-
-enum TrekDifficulty {
-  EASY
-  MODERATE
-  CHALLENGING
-  DIFFICULT
-  EXTREME
-}
-
-enum VehicleType {
-  SEDAN
-  SUV
-  VAN
-  BIKE_STANDARD
-  BIKE_CRUISER
-  BIKE_SPORT
-}
-
-
-model User {
-  id                String            @id @default(cuid())
-  email             String            @unique
-  password          String
-  role              UserRole
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  profile           UserProfile?
-  partnerProfile    PartnerProfile?
-  bookings          Booking[]
-  reviews           Review[]
-  wishlist          WishlistItem[]
-  messages          Message[]
-  loyaltyPoints     Int               @default(0)
-  notifications     Notification[]
-  customItineraries CustomItinerary[] 
-  whatsappChats     WhatsAppChat[]    
-}
-
-model UserProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id])
-  firstName   String
-  lastName    String
-  phoneNumber String?
-  address     String?
-  city        String?
-  country     String?
-  avatar      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model PartnerProfile {
-  id               String      @id @default(cuid())
-  userId           String      @unique
-  user             User        @relation(fields: [userId], references: [id])
-  businessName     String
-  partnerType      PartnerType
-  description      String?     @db.Text
-  logo             String?
-  coverImage       String?
-  contactEmail     String
-  contactPhone     String
-  address          String
-  city             String
-  country          String
-  isVerified       Boolean     @default(false)
-  commission_rate  Float       @default(10.0)
-  listings         Listing[]
-  bankDetails      BankDetail?
-  documents        Document[]
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-}
-
-
-model Listing {
-  id                String            @id @default(cuid())
-  type              ListingType
-  partnerId         String
-  partner           PartnerProfile    @relation(fields: [partnerId], references: [id])
-  title             String
-  description       String            @db.Text
-  basePrice         Float
-  location          String
-  coordinates       Json              // {lat: float, lng: float}
-  city              String
-  Province             String?
-  country           String
-  images            Image[]
-  rating            Float             @default(0)
-  isActive          Boolean           @default(true)
-  isFeatured        Boolean           @default(false)
-  sustainableBadge  Boolean           @default(false)
-  bookings          Booking[]
-  reviews           Review[]
-  wishlisted        WishlistItem[]
-  customItineraries CustomItinerary[]
-  faqs              FAQ[]
-  cancelPolicy      String            @db.Text
-  
-  promotions        Promotion[]       @relation("ListingToPromotion")
-  hotelListing     HotelListing?
-  tourListing      TourListing?
-  trekListing      TrekListing?
-  activityListing  ActivityListing?
-  rentalListing    RentalListing?
-
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-}
-
-
-model HotelListing {
-  id              String    @id @default(cuid())
-  listingId       String    @unique
-  listing         Listing   @relation(fields: [listingId], references: [id])
-  checkInTime     String
-  checkOutTime    String
-  totalRooms      Int
-  facilities       String[]
-  rules           String[]
-  rooms           Room[]
-  parking         Boolean   @default(false)
-  breakfast       Boolean   @default(false)
-  restaurantOnsite Boolean  @default(false)
-  roomService     Boolean   @default(false)
-  fitnessCenter   Boolean   @default(false)
-  minBookingDays  Int      @default(1)
-}
-
-model Room {
-  id              String    @id @default(cuid())
-  hotelListingId  String
-  hotelListing    HotelListing @relation(fields: [hotelListingId], references: [id])
-  type            RoomType
-  description     String    @db.Text
-  capacity        Int
-  beds            Int
-  bathrooms       Int
-  price           Float
-  quantity        Int
-  facilities       String[]
-  images          Image[]
-  availability    RoomAvailability[]
-}
-
-model RoomAvailability {
-  id        String   @id @default(cuid())
-  roomId    String
-  room      Room     @relation(fields: [roomId], references: [id])
-  date      DateTime
-  available Int
-  price     Float?
-}
-
-
-model TourListing {
-  id              String    @id @default(cuid())
-  listingId       String    @unique
-  listing         Listing   @relation(fields: [listingId], references: [id])
-  tourType        TourType
-  duration        Int
-  groupSize       Int
-  startLocation   String
-  endLocation     String
-  transportation  String[]
-  accommodation   String[]
-  meals           String[]
-  itinerary       TourItineraryDay[]
-  inclusions      String[]
-  exclusions      String[]
-  requirements    String[]
-  departureSchedule TourDeparture[]
-}
-
-model TourItineraryDay {
-  id            String      @id @default(cuid())
-  tourListingId String
-  tourListing   TourListing @relation(fields: [tourListingId], references: [id])
-  dayNumber     Int
-  title         String
-  description   String      @db.Text
-  activities    String[]
-  meals         String[]
-  accommodation String
-  distance      Float?
-}
-
-model TourDeparture {
-  id            String      @id @default(cuid())
-  tourListingId String
-  tourListing   TourListing @relation(fields: [tourListingId], references: [id])
-  departureDate DateTime
-  price         Float
-  availableSeats Int
-  status        String
-}
-
-
-model TrekListing {
-  id              String         @id @default(cuid())
-  listingId       String         @unique
-  listing         Listing        @relation(fields: [listingId], references: [id])
-  difficulty      TrekDifficulty
-  maxAltitude     Float
-  distance        Float
-  duration        Int
-  startPoint      String
-  endPoint        String
-  groupSize       Int
-  season          String[]
-  equipment       String[]
-  itinerary       TrekItineraryDay[]
-  inclusions      String[]
-  exclusions      String[]
-  fitness         String         @db.Text
-  requirements    String[]
-  departureSchedule TrekDeparture[]
-}
-
-model TrekItineraryDay {
-  id            String      @id @default(cuid())
-  trekListingId String
-  trekListing   TrekListing @relation(fields: [trekListingId], references: [id])
-  dayNumber     Int
-  title         String
-  description   String      @db.Text
-  distance      Float
-  elevation     Json
-  hours         Float
-  accommodation String
-  meals         String[]
-}
-
-model TrekDeparture {
-  id            String      @id @default(cuid())
-  trekListingId String
-  trekListing   TrekListing @relation(fields: [trekListingId], references: [id])
-  departureDate DateTime
-  price         Float
-  availableSpots Int
-  status        String
-}
-
-model ActivityListing {
-  id              String    @id @default(cuid())
-  listingId       String    @unique
-  listing         Listing   @relation(fields: [listingId], references: [id])
-  activityType    String
-  duration        Float
-  difficulty      String
-  minAge          Int?
-  maxAge          Int?
-  groupSize       Json
-  equipment       String[]
-  provided        String[]
-  requirements    String[]
-  schedule        ActivitySchedule[]
-}
-
-model ActivitySchedule {
-  id                String          @id @default(cuid())
-  activityListingId String
-  activityListing   ActivityListing @relation(fields: [activityListingId], references: [id])
-  startTime         DateTime
-  duration          Float
-  price            Float
-  availableSpots    Int
-}
-
-model RentalListing {
-  id              String      @id @default(cuid())
-  listingId       String      @unique
-  listing         Listing     @relation(fields: [listingId], references: [id])
-  vehicleType     VehicleType
-  brand           String
-  model           String
-  year            Int
-  transmission    String
-  fuel            String?
-  mileage         Float?
-  features        String[]
-  documents       String[]
-  terms          String       @db.Text
-  availability    RentalAvailability[]
-}
-
-model RentalAvailability {
-  id              String        @id @default(cuid())
-  rentalListingId String
-  rentalListing   RentalListing @relation(fields: [rentalListingId], references: [id])
-  date            DateTime
-  isAvailable     Boolean
-  price           Float?
-}
-
-
-model Booking {
-  id              String        @id @default(cuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  listingId       String
-  listing         Listing       @relation(fields: [listingId], references: [id])
-  promotionId     String?       // Added optional promotion
-  promotion       Promotion?    @relation(fields: [promotionId], references: [id])
-  startDate       DateTime
-  endDate         DateTime
-  totalAmount     Float
-  status          BookingStatus @default(PENDING)
-  paymentId       String?
-  payment         Payment?
-  review          Review?
-  guestCount      Int
-  specialRequests String?
-  messages        Message[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-}
-
-
 model Payment {
-  id            String    @id @default(cuid())
-  bookingId     String    @unique
-  booking       Booking   @relation(fields: [bookingId], references: [id])
-  amount        Float
-  currency      String    @default("PKR")
-  method        String
-  status        String
+  id            String        @id @default(uuid())
+  bookingId     String
+  booking       Booking       @relation(fields: [bookingId], references: [id])
+  paymentMethod String
   transactionId String?
-  payout        Payout?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  amountPaid    Float
+  paymentStatus PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
 }
 
 model Payout {
-  id        String       @id @default(cuid())
-  paymentId String       @unique
-  payment   Payment      @relation(fields: [paymentId], references: [id])
-  amount    Float
-  status    PayoutStatus
-  bankId    String
-  bank      BankDetail   @relation(fields: [bankId], references: [id])
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id           String       @id @default(uuid())
+  partnerId    String
+  partner      Partner      @relation(fields: [partnerId], references: [id])
+  bookingId    String
+  booking      Booking      @relation(fields: [bookingId], references: [id])
+  amount       Float
+  payoutMethod String
+  payoutStatus PayoutStatus @default(PENDING)
+  payoutDate   DateTime?
+  createdAt    DateTime     @default(now())
 }
 
-model BankDetail {
-  id              String         @id @default(cuid())
-  partnerId       String         @unique
-  partner         PartnerProfile @relation(fields: [partnerId], references: [id])
-  bankName        String
-  accountTitle    String
-  accountNumber   String
-  payouts         Payout[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+enum PayoutStatus {
+  PENDING
+  AMOUNT_RELEASED
+  PROCESSED
+  FAILED
 }
 
+// Reviews and Ratings
 model Review {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id])
-  bookingId String   @unique
-  booking   Booking  @relation(fields: [bookingId], references: [id])
-  rating    Float
-  comment   String   @db.Text
-  response  String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(uuid())
+  listingId       String?
+  listing         Listing? @relation(fields: [listingId], references: [id])
+  partnerId       String
+  partner         Partner  @relation(fields: [partnerId], references: [id])
+  travelerId      String
+  traveler        User     @relation(fields: [travelerId], references: [id])
+  rating          Float
+  title           String?
+  partnerResponse String?
+  comment         String?
+  isVerified      Boolean  @default(false)
+  createdAt       DateTime @default(now())
 }
 
-model Image {
-  id          String   @id @default(cuid())
-  url         String
-  caption     String?
-  isFeatured  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
-  listingId   String?
-  listing     Listing?  @relation(fields: [listingId], references: [id])
-  roomId      String?
-  room        Room?     @relation(fields: [roomId], references: [id])
-}
+// User Interactions
+model Wishlist {
+  id         String   @id @default(uuid())
+  travelerId String
+  traveler   User     @relation(fields: [travelerId], references: [id])
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id])
+  createdAt  DateTime @default(now())
 
-model WishlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id])
-  createdAt DateTime @default(now())
+  @@unique([travelerId, listingId])
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id        String   @id @default(uuid())
   bookingId String
   booking   Booking  @relation(fields: [bookingId], references: [id])
-  content   String   @db.Text
-  createdAt DateTime @default(now())
-}
-
-model Document {
-  id          String         @id @default(cuid())
-  partnerId   String
-  partner     PartnerProfile @relation(fields: [partnerId], references: [id])
-  type        String
-  url         String
-  isVerified  Boolean        @default(false)
-  createdAt   DateTime       @default(now())
-}
-
-model FAQ {
-  id        String   @id @default(cuid())
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id])
-  question  String
-  answer    String   @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  title     String
-  message   String
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  content   String
   isRead    Boolean  @default(false)
-  type      String
   createdAt DateTime @default(now())
 }
 
-model CustomItinerary { // itenary means like facility but here it means user can more then one listing combined
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  name      String
-  listings  Listing[]
-  notes     String?   @db.Text
-  startDate DateTime?
-  endDate   DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+// Content Management
+model Blog {
+  id             String   @id @default(uuid())
+  title          String
+  content        String   @db.Text
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id])
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String[] @default([])
+  type           BlogType
+  isPublished    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
-model BlogPost {
-  id           String        @id @default(cuid())
-  title        String
-  slug         String        @unique
-  content      String        @db.Text
-  excerpt      String        @db.Text
-  category     BlogCategory 
-  tags         BlogTag[]
-  author       String
-  coverImage   String?
-  isPublished  Boolean       @default(false)
-  metaTitle    String?
-  metaDesc     String?
-  views        Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-}
-
-enum BlogCategory {
+enum BlogType {
+  NEWS
+  GUIDES
   ARTICLE
-  POST
-  GUIDE
-}
-
-model BlogTag {
-  id          String     @id @default(cuid())
-  name        String     @unique
-  slug        String     @unique
-  posts       BlogPost[]
-  createdAt   DateTime   @default(now())
 }
 
 model NewsletterSubscription {
-  id          String    @id @default(cuid())
-  email       String    @unique
-  isVerified  Boolean   @default(false)
-  interests   String[]  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String   @id @default(uuid())
+  email        String   @unique
+  isSubscribed Boolean  @default(true)
+  createdAt    DateTime @default(now())
 }
 
-
-model Promotion {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  type        PromoType
-  value       Float     // Percentage or fixed amount
-  maxUses     Int?
-  usedCount   Int       @default(0)
-  minAmount   Float?
-  startDate   DateTime
-  endDate     DateTime
-  isActive    Boolean   @default(true)
-  listings    Listing[] @relation("ListingToPromotion")
-  bookings    Booking[] 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+// Promotions
+model Coupon {
+  id               String       @id @default(uuid())
+  code             String       @unique
+  discountType     DiscountType
+  discountValue    Float
+  maxUses          Int?
+  usedCount        Int          @default(0)
+  minBookingAmount Float?
+  expirationDate   DateTime?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
 }
 
-enum PromoType {
+enum DiscountType {
   PERCENTAGE
   FIXED_AMOUNT
 }
 
-model WhatsAppChat {
-  id          String            @id @default(cuid())
-  userId      String
-  user        User              @relation(fields: [userId], references: [id])
-  phoneNumber String
-  status      String    
-  messages    WhatsAppMessage[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+// Analytics and Reporting
+model AdminAnalytics {
+  id             String   @id @default(uuid())
+  totalBookings  Int
+  totalRevenue   Float
+  totalPartners  Int
+  totalTravelers Int
+  topCategories  Json // Most popular categories
+  topRegions     Json // Regions with highest activity
+  monthlyReport  Json // Data broken down by month
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
-model WhatsAppMessage {
-  id          String    @id @default(cuid())
-  chatId      String
-  chat        WhatsAppChat @relation(fields: [chatId], references: [id])
-  content     String    @db.Text
-  direction   String
-  status      String    
-  timestamp   DateTime  @default(now())
+model PartnerAnalytics {
+  id                  String   @id @default(uuid())
+  partnerId           String   @unique
+  partner             Partner  @relation(fields: [partnerId], references: [id])
+  totalEarnings       Float
+  totalBookings       Int
+  monthlyReport       Json // Data broken down by month
+  mostPopularListings Json // Listings with highest bookings
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
-// SEO and Analytics
-model SEOMetadata {
-  id          String    @id @default(cuid())
-  pageUrl     String    @unique
+// Administrative Actions
+model AdminAction {
+  id            String          @id @default(uuid())
+  adminId       String
+  admin         User            @relation(fields: [adminId], references: [id])
+  actionType    AdminActionType
+  targetId      String? // ID of affected listing or partner
+  actionDetails String?
+  createdAt     DateTime        @default(now())
+}
+
+enum AdminActionType {
+  PARTNER_APPROVAL
+  PARTNER_REJECTION
+  LISTING_MODIFICATION
+  LISTING_REMOVAL
+  COUPON_CREATION
+  CATEGORY_MANAGEMENT
+}
+
+model PartnerAction {
+  id            String            @id @default(uuid())
+  listingId     String?
+  listing       Listing?          @relation(fields: [listingId], references: [id])
+  partnerId     String?
+  partner       Partner?          @relation(fields: [partnerId], references: [id])
+  actionType    PartnerActionType
+  actionDetails String?
+  status        ActionStatus      @default(PENDING)
+  createdAt     DateTime          @default(now())
+}
+
+enum PartnerActionType {
+  LISTING_UPDATE
+  CANCELLATION_REQUEST
+  PAYOUT_REQUEST
+  SUPPORT_INQUIRY
+}
+
+enum ActionStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
+model ListingModificationRequest {
+  id               String             @id @default(uuid())
+  partnerId        String
+  partner          Partner            @relation(fields: [partnerId], references: [id])
+  listingId        String
+  listing          Listing            @relation(fields: [listingId], references: [id])
+  requestedChanges Json // Key-value pairs of requested changes
+  status           ModificationStatus @default(PENDING)
+  adminNotes       String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+enum ModificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Notifications
+model Notification {
+  id          String           @id @default(uuid())
+  recipientId String
+  recipient   User             @relation(fields: [recipientId], references: [id])
   title       String
-  description String    @db.Text
-  keywords    String[]
-  ogImage     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  content     String
+  type        NotificationType
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
 }
 
-model PageAnalytics {
-  id          String    @id @default(cuid())
-  pageUrl     String
-  views       Int       @default(0)
-  clicks      Int
-  date        DateTime  @default(now())
-  
-  @@unique([pageUrl, date])
+enum NotificationType {
+  BOOKING_UPDATE
+  PAYMENT_REMINDER
+  MARKETING
+  SYSTEM
+  REVIEW_RECEIVED
+  LISTING_UPDATE
 }
