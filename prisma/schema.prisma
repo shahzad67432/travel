@@ -45,25 +45,100 @@ enum UserRole {
 }
 
 // Partner Management
+// model Partner {
+//   id                 String             @id @default(uuid())
+//   userId             String             @unique
+//   user               User               @relation(fields: [userId], references: [id])
+//   businessName       String
+//   contactPerson      String
+//   email              String             @unique
+//   phoneNumber        String
+//   Document           String?
+//   partnerType        PartnerType
+//   // regionsOperated   String[]
+//   servicesOffered    String[]
+//   payoutDetails      Json
+//   verificationStatus VerificationStatus @default(PENDING)
+//   commission         Float              @default(0)
+//   averageRating      Float              @default(0)
+//   createdAt          DateTime           @default(now())
+//   updatedAt          DateTime           @updatedAt
+
+//   // Relations
+//   permissions          CategoryPermission[]
+//   listings             Listing[]
+//   bookings             Booking[] // Bookings received
+//   payouts              Payout[]
+//   reviews              Review[] // Reviews received
+//   analytics            PartnerAnalytics?
+//   actions              PartnerAction[]
+//   modificationRequests ListingModificationRequest[]
+// }
+
 model Partner {
-  id                 String             @id @default(uuid())
-  userId             String             @unique
-  user               User               @relation(fields: [userId], references: [id])
-  businessName       String
-  contactPerson      String
-  email              String             @unique
-  phoneNumber        String
-  partnerType        PartnerType
-  // regionsOperated   String[]
-  servicesOffered    String[]
-  payoutDetails      Json
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Basic Business Information
+  businessName     String
+  ownerFounderName String? // New field for owner/founder name
+  contactPerson    String
+  email            String  @unique
+  phoneNumber      String
+  telNumber        String? // Additional telephone number
+
+  // Location and Operational Details
+  officeAddress       String?
+  operatingCityRegion String?
+
+  // Partner Type Specific Fields
+  partnerType PartnerType
+
+  // Tour Operator Specific Fields
+  dtsLicenseNo          String?
+  tourTypes             String[] @default([])
+  organizeTreks         Boolean?
+  orgInternationalTours Boolean?
+  toursPerMonth         Int?
+
+  // Business Registration and Verification
+  Document          String?
+  businessRegNumber String?
+  yearEstablished   Int?
+
+  // activity providers
+  licenseNo String?
+
+  // Contact and Online Presence
+  websiteLink   String?
+  facebookLink  String?
+  instagramLink String?
+
+  // Vehicle Rental Specific (if applicable)
+  vehicleTypes           String[] @default([])
+  vehicleCount           Int?
+  pickupAddress          String?
+  rentalPolicy           String?
+  depositRequirements    String?
+  BusinessRegistrationNo String?
+
+  // Payment and Financial Details
+  servicesOffered   String[]
+  payoutDetails     Json
+  bankName          String?
+  bankBranch        String?
+  accountHolderName String?
+  iban              String?
+  accountNumber     String?
+
   verificationStatus VerificationStatus @default(PENDING)
   commission         Float              @default(0)
   averageRating      Float              @default(0)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  // Relations
+  // Relations (remain the same)
   permissions          CategoryPermission[]
   listings             Listing[]
   bookings             Booking[] // Bookings received
@@ -96,8 +171,8 @@ model CategoryPermission {
   categoryId    String
   category      Category      @relation(fields: [categoryId], references: [id])
   subCategories SubCategory[]
-  tourTypes     TourType[] // didnot understand this
-  tourThemes    TourTheme[] // didnot understand this
+  tourTypes     TourType[] // type of tours
+  tourThemes    TourTheme[] // themes like instaed of we defining admin will define and that would be selected by partner.
   createdAt     DateTime      @default(now())
 
   @@unique([partnerId, categoryId])
@@ -183,6 +258,7 @@ model Listing {
   tourThemeId   String?
   tourTheme     TourTheme?   @relation(fields: [tourThemeId], references: [id])
 
+  For               FOR_CUSTOMER
   title             String
   description       String
   price             Json // Flexible pricing structure
@@ -209,6 +285,10 @@ model Listing {
   addOns             Json? // Optional services
   termsAndConditions String?
   faqs               Json?
+  NotSuitableFor     String?
+  IncludedServices   Json?
+  ExcludedServices   Json?
+  Type               String? // group or private
 
   // Trek/Climbing specific
   difficultyLevel     String?
@@ -221,6 +301,7 @@ model Listing {
   activityType String?
   itinerary    Json? // Hour-by-hour or day-by-day plan
   startTime    String?
+  capacity     Int?
 
   // Vehicle rental specific
   vehicleType   String?
@@ -231,12 +312,16 @@ model Listing {
   features      String[] @default([])
   pickupAddress String?
   rates         Json?
+  withDriver    Boolean?
 
   // Hotel specific
-  totalRooms  Int?
-  roomTypes   Json? // List of room types with descriptions
-  amenities   String[] @default([])
-  roomPricing Json?
+  totalRooms      Int?
+  roomTypes       Json? // List of room types with descriptions
+  amenities       String[] @default([])
+  roomPricing     Json?
+  occupanyPerRoom Int?
+  checkOutTime    Json?
+  hotelPolicy     Json?
 
   // Guide specific
   guideExperience Int?
@@ -253,6 +338,12 @@ model Listing {
   wishlists            Wishlist[]
   modificationRequests ListingModificationRequest[]
   partnerActions       PartnerAction[]
+}
+
+enum FOR_CUSTOMER {
+  LOCAL
+  INTERNATIONAL
+  BOTH
 }
 
 enum listingApprovedStatus {
