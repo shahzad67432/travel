@@ -90,7 +90,7 @@ model Partner {
 
   // Location and Operational Details
   officeAddress       String?
-  operatingCityRegion String?
+  operatingCityRegions String[] @default([])
 
   // Partner Type Specific Fields
   partnerType PartnerType
@@ -126,14 +126,16 @@ model Partner {
   // Payment and Financial Details
   servicesOffered   String[]
   payoutDetails     Json
-  bankName          String?
-  bankBranch        String?
-  accountHolderName String?
-  iban              String?
-  accountNumber     String?
+  // bankName          String?
+  // bankBranch        String?
+  // accountHolderName String?
+  // iban              String?
+  // accountNumber     String?
 
   verificationStatus VerificationStatus @default(PENDING)
   commission         Float              @default(0)
+  groupTourAccess    Boolean @default(true)
+  privateTourAccess Boolean @default(true)
   averageRating      Float              @default(0)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -171,8 +173,6 @@ model CategoryPermission {
   categoryId    String
   category      Category      @relation(fields: [categoryId], references: [id])
   subCategories SubCategory[]
-  tourTypes     TourType[] // type of tours
-  tourThemes    TourTheme[] // themes like instaed of we defining admin will define and that would be selected by partner.
   createdAt     DateTime      @default(now())
 
   @@unique([partnerId, categoryId])
@@ -220,8 +220,6 @@ model TourType {
   description String?
   createdAt   DateTime @default(now())
 
-  // Relations
-  permissions CategoryPermission[]
   listings    Listing[]
 }
 
@@ -232,7 +230,6 @@ model TourTheme {
   createdAt   DateTime      @default(now())
 
   // Relations
-  permissions CategoryPermission[]
   listings    Listing[]
 }
 
@@ -541,8 +538,6 @@ model AdminAction {
   adminId       String
   admin         User            @relation(fields: [adminId], references: [id])
   actionType    AdminActionType
-  targetId      String? // ID of affected listing or partner
-  actionDetails String?
   createdAt     DateTime        @default(now())
 }
 
@@ -553,6 +548,7 @@ enum AdminActionType {
   LISTING_REMOVAL
   COUPON_CREATION
   CATEGORY_MANAGEMENT
+  PARTNER_MANAGEMENT
 }
 
 model PartnerAction {
