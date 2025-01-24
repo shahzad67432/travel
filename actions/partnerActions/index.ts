@@ -12,6 +12,7 @@
 import { prisma } from "@/lib/prisma"
 import { PartnerType, UserRole } from "@prisma/client"
 import { PartnerCreationPayload, PartnerValidationSchemas } from "../types/partnerTypes"
+import { transporter } from "@/lib/email-service"
 
 
 
@@ -46,6 +47,19 @@ export async function initiatePartnerOnboarding(payload: PartnerCreationPayload)
           }
         }
       },
+      
       include: { partner: true }
     })
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: partner.email,
+      subject: 'Partner Signed up',
+      text: `Partner signed up, now wait for admin approval`
+    })
+
+    return {
+      success: true,
+      message: 'Partner signed up successfully. Please wait for admin approval.'
+    }
   }

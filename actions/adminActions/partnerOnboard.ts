@@ -1,11 +1,12 @@
 "use server"
 
+import { transporter } from "@/lib/email-service";
 import { prisma } from "@/lib/prisma"
 import { 
     AdminActionType,
     CategoryEnum, 
     PartnerType, 
-    TourThemeType 
+    TourThemeType
   } from "@prisma/client"
   import z from 'zod';
 
@@ -45,6 +46,15 @@ export const updatePartnerVerificationStatus = async (
         ...(status === "APPROVED" && {})
       }
     })
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: updatedPartner.email,
+      subject: 'Partner status updated',
+      text: `Your status has been updated Current status: ${status}`
+    })
+
+
     return updatedPartner;
   }
 
@@ -126,10 +136,17 @@ export async function createCategory(
   data: z.infer<typeof CategoryCreationSchema>
 ) {
   // Validate admin permissions
-  await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
+  const admin = await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
 
   // Create category
   const category = await prisma.category.create({ data })
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: process.env.EMAIL_FROM,
+    subject: 'Category created',
+    text: `${category.enumName} has been created by admin ${admin && admin.email}`
+  })
 
   return category
 }
@@ -139,7 +156,7 @@ export async function createSubCategory(
   data: z.infer<typeof SubCategoryCreationSchema>
 ) {
   // Validate admin permissions
-  await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
+  const admin = await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
 
   // Create sub-category
   const subCategory = await prisma.subCategory.create({ 
@@ -150,6 +167,14 @@ export async function createSubCategory(
       requiredFields: data.requiredFields || {}
     } 
   })
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: process.env.EMAIL_FROM,
+    subject: 'Category created',
+    text: `${subCategory.name} has been created by admin ${admin && admin.email}`
+  })
+
   return subCategory
 }
 
@@ -158,10 +183,17 @@ export async function createTourType(
   data: z.infer<typeof TourTypeCreationSchema>
 ) {
   // Validate admin permissions
-  await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
+  const admin = await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
 
   // Create tour type
   const tourType = await prisma.tourType.create({ data })
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: process.env.EMAIL_FROM,
+    subject: 'Category created',
+    text: `${tourType.name} has been created by admin ${admin && admin.email}`
+  })
 
   return tourType
 }
@@ -171,10 +203,17 @@ export async function createTourTheme(
   data: z.infer<typeof TourThemeCreationSchema>
 ) {
   // Validate admin permissions
-  await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
+  const admin = await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
 
   // Create tour theme
   const tourTheme = await prisma.tourTheme.create({ data })
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: process.env.EMAIL_FROM,
+    subject: 'Category created',
+    text: `${tourTheme.name} has been created by admin ${admin && admin.email}`
+  })
 
   return tourTheme
 }
@@ -184,7 +223,7 @@ export async function updatePartnerCategories(
   data: z.infer<typeof CategoryPermissionUpdateSchema>
 ) {
   // Validate admin permissions
-  await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
+  const admin = await validateAdminPermission(adminId, "CATEGORY_MANAGEMENT")
 
   // Find existing category permission or create new
   const existingPermission = await prisma.categoryPermission.findUnique({
@@ -209,12 +248,6 @@ export async function updatePartnerCategories(
       subCategories: data.subCategoryIds 
         ? { set: data.subCategoryIds.map(id => ({ id })) } 
         : undefined,
-      tourTypes: data.tourTypeIds
-        ? { set: data.tourTypeIds.map(id => ({ id })) }
-        : undefined,
-      tourThemes: data.tourThemeIds
-        ? { set: data.tourThemeIds.map(id => ({ id })) }
-        : undefined
     },
     create: {
       partnerId: data.partnerId,
@@ -222,16 +255,84 @@ export async function updatePartnerCategories(
       subCategories: { 
         connect: data.subCategoryIds?.map(id => ({ id })) 
       },
-      tourTypes: {
-        connect: data.tourTypeIds?.map(id => ({ id }))
-      },
-      tourThemes: {
-        connect: data.tourThemeIds?.map(id => ({ id }))
-      }
     }
   })
 
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: process.env.EMAIL_FROM,
+    subject: 'Categories assigned to partner',
+    text: `categories assigned for the partner id: ${updatedPermission.partnerId}`
+  })
+
   return updatedPermission
+}
+
+const PartnerAccessUpdateSchema = z.object({
+  partnerId: z.string(),
+  allowInternational: z.boolean().optional(),
+  allowGroup: z.boolean().optional(),
+  allowPrivate: z.boolean().optional()
+})
+
+export async function updatePartnerAccess(
+  adminId: string, 
+  data: z.infer<typeof PartnerAccessUpdateSchema>
+) {
+  // Validate admin permissions
+  const admin = await prisma.user.findUnique({
+    where: { id: adminId }
+  })
+
+  // Check if admin is SUPER_ADMIN or has PARTNER_MANAGEMENT permission
+  if (admin?.role !== "SUPER_ADMIN") {
+    const adminAction = await prisma.adminAction.findFirst({
+      where: {
+        adminId,
+        actionType: "PARTNER_MANAGEMENT"
+      }
+    })
+
+    if (!adminAction) {
+      throw new Error("Not authorized to update partner access")
+    }
+  }
+
+  // Validate input
+  const validatedData = PartnerAccessUpdateSchema.parse(data)
+
+  // Find partner to get email for notification
+  const partner = await prisma.partner.findUnique({
+    where: { id: validatedData.partnerId },
+    include: { user: true }
+  })
+
+  if (!partner) {
+    throw new Error("Partner not found")
+  }
+
+  // Update partner access
+  const updatedPartner = await prisma.partner.update({
+    where: { id: validatedData.partnerId },
+    data: {
+      allowInternational: validatedData.allowInternational ?? partner.allowInternational,
+      allowGroup: validatedData.allowGroup ?? partner.allowGroup,
+      allowPrivate: validatedData.allowPrivate ?? partner.allowPrivate
+    }
+  })
+
+  // Send notification email
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: partner.email,
+    subject: 'Partner Access Updated',
+    text: `Your partner account access has been updated:
+    - International Tours: ${updatedPartner.allowInternational}
+    - Group Tours: ${updatedPartner.allowGroup}
+    - Private Tours: ${updatedPartner.allowPrivate}`
+  })
+
+  return updatedPartner
 }
 
 // Helper function to validate admin permission
@@ -252,4 +353,5 @@ async function validateAdminPermission(adminId: string, actionType: AdminActionT
       throw new Error("Not authorized to perform this action")
     }
   }
+  return admin;
 }

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
 import nodemailer from "nodemailer"
 import crypto from "crypto"
+import { transporter } from "./email-service"
 
 // Define custom types for authentication
 type AuthUser = {
@@ -23,16 +24,7 @@ type OTPRecord = {
 // Temporary in-memory OTP storage (replace with Redis or database in production)
 const otpStorage: Record<string, OTPRecord> = {}
 
-// Generate a 6-digit OTP
-const transporter = nodemailer.createTransport({
-    host: "smtp.mandrillapp.com",
-    port: 587,
-    auth: {
-      user: process.env.MAILCHIMP_USERNAME,
-      pass: process.env.MAILCHIMP_API_KEY
-    }
-  })
-  
+
   // Generate 6-digit OTP
   function generateOTP(): string {
     return Math.floor(100000 + Math.random() * 900000).toString()

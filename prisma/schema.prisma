@@ -94,7 +94,9 @@ model Partner {
 
   // Partner Type Specific Fields
   partnerType PartnerType
-
+  allowInternational  Boolean @default(false)
+  allowGroup  Boolean @default(false)
+  allowPrivate Boolean @default(false)
   // Tour Operator Specific Fields
   dtsLicenseNo          String?
   tourTypes             String[] @default([])
@@ -212,6 +214,21 @@ model SubCategory {
   // Relations
   permissions CategoryPermission[]
   listings    Listing[]
+}
+
+enum CategoriesNames {
+  TOURS
+  TREKS
+  CLIMBING
+
+  CAR_RENTAL
+  BIKE_RENTAL
+
+  ROOM
+
+  ACTIVITIES
+  
+  TOUR_GUIDES
 }
 
 model TourType {
