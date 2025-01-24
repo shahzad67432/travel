@@ -227,7 +227,7 @@ enum CategoriesNames {
   ROOM
 
   ACTIVITIES
-  
+
   TOUR_GUIDES
 }
 
@@ -566,6 +566,7 @@ enum AdminActionType {
   COUPON_CREATION
   CATEGORY_MANAGEMENT
   PARTNER_MANAGEMENT
+  LISTING_MANAGEMENT
 }
 
 model PartnerAction {
