@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
@@ -48,7 +48,7 @@ function SearchParamsComponent() {
             <input
               type="hidden"
               name="pp_ReturnURL"
-              value="https://travel-seven-xi.vercel.app/"
+              value="https://travel-seven-xi.vercel.app/success"
             />
             <input type="hidden" name="pp_Amount" value="10000" />
             <input
