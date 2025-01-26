@@ -1,13 +1,20 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+"use client"
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchParamsComponent />
+    </Suspense>
+  );
+}
+
+function SearchParamsComponent() {
   const searchParams = useSearchParams();
   const [transactionResult, setTransactionResult] = useState<any>(null);
 
   useEffect(() => {
-    // Fetch query parameters from the return URL
     const params: any = {};
     searchParams.forEach((value, key) => {
       params[key] = value;
