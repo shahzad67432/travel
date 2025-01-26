@@ -40,7 +40,7 @@ export default function Home() {
           <input
             type="hidden"
             name="pp_ReturnURL"
-            value="https://4319-103-26-82-226.ngrok-free.app/"
+            value="/"
           />
           <input type="hidden" name="pp_Amount" value="10000" />
           <input
