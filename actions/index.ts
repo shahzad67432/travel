@@ -24,12 +24,12 @@
 
 /*{
 
-1. CREATE BOOKING,
-2. CANCEL BOOKING, -> request by customer, admin then refunds.
-3. PAYMENTS, -> user pay the bill to admin account -> payment integration. ( transaction )
-4. UPDATING_STATUS_BY_PARTNER, -> completed, inprogress other
-5. REVIEWS -> create, update_by_admin, remove_by_admin, reponse_by_partner
-6. CHAT -> between traveller and partner. message.create(partnerId ot other id).
+1. CREATE BOOKING, ----- do this. done
+2. CANCEL BOOKING, -> request by customer, admin then refunds.  ----- done.
+3. PAYMENTS, -> user pay the bill to admin account -> payment integration. ( transaction ) ----- do it.
+4. UPDATING_STATUS_BY_PARTNER, -> completed, inprogress other ----- Done.
+5. REVIEWS -> create, update_by_admin, remove_by_admin, reponse_by_partner ---- sort of.
+6. CHAT -> between traveller and partner. message.create(partnerId ot other id). ----Done.
 
 }*/
 
