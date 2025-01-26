@@ -1,28 +1,26 @@
-"use client";
+'use client'
 
-import React, { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-const SuccessPage = () => {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Assuming response from 2Checkout includes success message
-    const params = Object.fromEntries(searchParams.entries());
-    if (params) {
-      setPaymentStatus(params.payment_status || "Payment status unknown.");
-    }
-  }, [searchParams]);
+  const params = Object.fromEntries(searchParams);
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold text-center mb-4">
-        Payment {paymentStatus === "Success" ? "Successful" : "Failed"}
-      </h1>
-      <p className="text-center">{paymentStatus}</p>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Payment Response</h1>
+      <pre className="bg-gray-100 p-4 rounded">
+        {JSON.stringify(params, null, 2)}
+      </pre>
     </div>
   );
-};
+}
 
-export default SuccessPage;
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentSuccessContent />
+    </Suspense>
+  );
+}
