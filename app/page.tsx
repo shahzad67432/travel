@@ -40,7 +40,7 @@ export default function Home() {
           <input
             type="hidden"
             name="pp_ReturnURL"
-            value="/"
+            value="http://localhost:3000/"
           />
           <input type="hidden" name="pp_Amount" value="10000" />
           <input

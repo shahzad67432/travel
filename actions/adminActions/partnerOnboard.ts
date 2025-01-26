@@ -29,7 +29,9 @@ export const updatePartnerVerificationStatus = async (
       const adminAction = await prisma.adminAction.findFirst({
         where: {
           adminId,
-          actionType: "PARTNER_APPROVAL" || "PARTNER_MANAGEMENT"
+          actionType: {
+            in: ["PARTNER_APPROVAL", "PARTNER_MANAGEMENT"]
+          }
         }
       })
   
