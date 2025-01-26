@@ -1,8 +1,17 @@
-"use client"
-import React, { useEffect, useState } from "react";
+"use client";
+
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const SuccessPage = () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchParamsComponent />
+    </Suspense>
+  );
+};
+
+const SearchParamsComponent = () => {
   const searchParams = useSearchParams();
   const [transactionResult, setTransactionResult] = useState<any>(null);
 
