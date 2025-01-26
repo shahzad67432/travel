@@ -1,98 +1,78 @@
-"use client";
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+'use client'
 
-export default function Home() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <SearchParamsComponent />
-    </Suspense>
-  );
-}
+import { useState, useEffect } from 'react';
 
-function SearchParamsComponent() {
-  const searchParams = useSearchParams();
-  const [transactionResult, setTransactionResult] = useState<any>(null);
+function JazzCashPaymentButton({ 
+  bookingId, 
+  userId, 
+  amount, 
+  description 
+}:any) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const params: any = {};
-    searchParams.forEach((value, key) => {
-      params[key] = value;
-    });
+  const handlePayment = async () => {
+    setIsProcessing(true);
+    setError(null);
 
-    if (Object.keys(params).length) {
-      setTransactionResult(params);
+    try {
+      // Call your backend endpoint to get payment initiation details
+      const response = await fetch('/api/payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          amount, 
+          description,
+          bookingId,
+          userId 
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initiate payment');
+      }
+
+      const paymentData = await response.json();
+
+      // Create form dynamically
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = paymentData.url;
+      form.style.display = 'none';
+
+      // Add all payment parameters as hidden fields
+      Object.entries(paymentData.formData).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value as string;
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+
+    } catch (err) {
+      console.error('Payment initiation error:', err);
+      setError('Failed to initiate payment. Please try again.');
+      setIsProcessing(false);
     }
-  }, [searchParams]);
+  };
 
   return (
-    <>
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold text-center mb-4">
-          JazzCash Payment Gateway
-        </h1>
-
-        {!transactionResult && (
-          <form
-            name="jsform"
-            method="post"
-            action="https://sandbox.jazzcash.com.pk/CustomerPortal/transactionmanagement/merchantform/"
-            className="bg-gray-100 p-4 rounded shadow"
-          >
-            {/* Add required fields */}
-            <input type="hidden" name="pp_Version" value="1.1" />
-            <input type="hidden" name="pp_TxnType" value="MWALLET" />
-            <input type="hidden" name="pp_MerchantID" value="MC148142" />
-            <input type="hidden" name="pp_Password" value="null" />
-            <input type="hidden" name="pp_TxnCurrency" value="PKR" />
-            <input
-              type="hidden"
-              name="pp_ReturnURL"
-              value="https://travel-seven-xi.vercel.app/success"
-            />
-            <input type="hidden" name="pp_Amount" value="10000" />
-            <input
-              type="hidden"
-              name="pp_TxnDateTime"
-              value={new Date()
-                .toISOString()
-                .replace(/[-:.TZ]/g, "")
-                .slice(0, 14)}
-            />
-            <input
-              type="hidden"
-              name="pp_TxnExpiryDateTime"
-              value={new Date(Date.now() + 3600 * 1000) // 1 hour from now
-                .toISOString()
-                .replace(/[-:.TZ]/g, "")
-                .slice(0, 14)}
-            />
-            <input type="hidden" name="pp_BillReference" value="TestRef123" />
-            <input
-              type="hidden"
-              name="pp_Description"
-              value="Test transaction"
-            />
-            <input type="hidden" name="salt" value="null" />
-
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-            >
-              Pay Now
-            </button>
-          </form>
-        )}
-
-        {transactionResult && (
-          <div className="bg-green-100 p-4 rounded shadow">
-            <h2 className="text-xl font-bold mb-2">Transaction Result</h2>
-            <pre className="bg-gray-100 p-2 rounded">
-              {JSON.stringify(transactionResult, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
-    </>
+    <div>
+      <button 
+        onClick={handlePayment}
+        disabled={isProcessing}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        {isProcessing ? 'Processing...' : 'Pay Now'}
+      </button>
+      {error && <p className="text-red-500">{error}</p>}
+    </div>
   );
 }
+
+export default JazzCashPaymentButton;

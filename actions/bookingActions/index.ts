@@ -71,7 +71,7 @@ export async function createBooking(
   }
 }
 
-export async function updatePaymentStatus(bookingid:string, userId:string ){
+export async function updatePaymentStatus(bookingid:string, userId:string){
 
 }
 
